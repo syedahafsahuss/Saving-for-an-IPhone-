@@ -1,5 +1,5 @@
 // Offline support: keep the app shell cached, refresh it in the background.
-const CACHE = "finance-v1";
+const CACHE = "finance-v2";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
