@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Finance Tracker</title>
+<meta name="description" content="Track tuition and carpool income, spending, and savings goals.">
+<meta name="theme-color" content="#f6f2ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f231f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Finance">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+img{max-width:100%}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+/* Layout: two tabs. "Overview" = monthly money in/out, forms, log. "iPhone Jar" = the savings goal with a phone that fills up. */
+:root{
+  --bg:#f6f2ea; --card:#fffdf8; --ink:#3b4238; --muted:#737a6e; --line:#e5dfd2;
+  --sage:#9fb79a; --sage-deep:#5a7655; --sage-soft:#e3ece0; --beige:#eadfcb;
+  --blush:#f2d9d3; --sky:#dbe6ef; --butter:#f6ecc8; --lilac:#e6dff0; --warn:#b06f56;
+  --display:"Bricolage Grotesque",ui-rounded,system-ui,sans-serif;
+  --body:"Nunito Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1f231f; --card:#282d27; --ink:#e9e6dc; --muted:#a6ab9f; --line:#3a4038;
+  --sage:#8fae89; --sage-deep:#b6d0b0; --sage-soft:#323d31; --beige:#4a4335;
+  --blush:#4a3632; --sky:#2f3a44; --butter:#45402c; --lilac:#3c3646; --warn:#e0a68d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1f231f; --card:#282d27; --ink:#e9e6dc; --muted:#a6ab9f; --line:#3a4038;
+  --sage:#8fae89; --sage-deep:#b6d0b0; --sage-soft:#323d31; --beige:#4a4335;
+  --blush:#4a3632; --sky:#2f3a44; --butter:#45402c; --lilac:#3c3646; --warn:#e0a68d; color-scheme:dark}
+*{box-sizing:border-box}
+body{-webkit-tap-highlight-color:transparent;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(28px,5vw,38px)} h2{font-size:19px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.num{font-variant-numeric:tabular-nums}
+.sub{color:var(--muted);font-size:13px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:12px}
+.sync{font-size:12px;color:var(--muted);background:var(--card);border:1px solid var(--line);padding:4px 10px;border-radius:999px}
+.tabs{display:flex;gap:4px;background:var(--beige);padding:4px;border-radius:999px;align-self:flex-start;max-width:100%}
+.tabs a{text-decoration:none;color:var(--ink);font-weight:700;font-size:14px;padding:8px 18px;border-radius:999px;white-space:nowrap}
+.tabs a[aria-current="page"]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.tabs a:focus-visible{outline:3px solid var(--sage);outline-offset:2px}
+.view{display:flex;flex-direction:column;gap:20px}
+.view[hidden]{display:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.cardhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+@media (max-width:860px){.two{grid-template-columns:minmax(0,1fr)}}
+.monthnav{display:flex;align-items:center;gap:8px}
+.monthnav b{font-family:var(--display);font-size:18px;min-width:8.5em;text-align:center}
+.iconbtn{background:var(--beige);color:var(--ink);width:36px;height:36px;padding:0;border-radius:50%;font-size:18px;line-height:1}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:700px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{border-radius:16px;padding:12px 14px;background:var(--bg)}
+.tile small{display:block;color:var(--muted);font-size:12px;font-weight:600}
+.tile b{display:block;font-family:var(--display);font-size:clamp(18px,3vw,24px)}
+.tile.in{background:var(--sage-soft)} .tile.out{background:var(--blush)} .tile.net{background:var(--sky)} .tile.rate{background:var(--butter)}
+.hbars{display:flex;flex-direction:column;gap:9px}
+.hbar{display:grid;grid-template-columns:6.5em minmax(0,1fr) auto;gap:10px;align-items:center;font-size:14px}
+.hbar .track{height:12px;border-radius:999px;background:var(--bg);overflow:hidden}
+.hbar .track i{display:block;height:100%;border-radius:999px}
+.budget{display:flex;flex-direction:column;gap:6px}
+.budget .track{height:14px;border-radius:999px;background:var(--bg);overflow:hidden}
+.budget .track i{display:block;height:100%;border-radius:999px;background:var(--sage);transition:width .5s}
+.budget .track i.over{background:var(--warn)}
+.pill{display:inline-flex;gap:6px;align-items:center;font-size:13px;font-weight:700;border-radius:999px;padding:5px 12px;background:var(--butter)}
+.pill.good{background:var(--sage-soft);color:var(--sage-deep)}
+.pill.warn{background:var(--blush);color:var(--warn)}
+/* forms: explicit 2-col grid; date and note always get a full row of their own so they can't collide */
+.entryform{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.entryform .wide{grid-column:1/-1}
+label{font-size:13px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:4px;min-width:0}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:9px 11px;width:100%;min-width:0;max-width:100%}
+input[type=date]{display:block;min-height:43px;-webkit-appearance:none;appearance:none;text-align:left;line-height:1.4}
+input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
+input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--sage);outline-offset:2px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.fields>*{min-width:0}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:11px 16px;cursor:pointer;background:var(--sage-deep);color:var(--card)}
+button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);padding:6px 10px;font-size:13px}
+button:hover{filter:brightness(1.05)}
+.outbtn{background:var(--warn)}
+.ready{box-shadow:0 0 0 4px var(--sage-soft)}
+.outbtn.ready{box-shadow:0 0 0 4px var(--blush)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--sage-soft);color:var(--ink);padding:7px 12px;font-size:13px;border-radius:999px}
+.chip.picked{background:var(--sage-deep);color:var(--card)}
+.outchips .chip{background:var(--blush)}
+.outchips .chip.picked{background:var(--warn);color:var(--card)}
+.outcard{background:color-mix(in srgb,var(--blush) 22%,var(--card))}
+.status{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--sage-soft);color:var(--sage-deep);font-weight:700;border-radius:14px;padding:10px 14px}
+.status.taken{background:var(--blush);color:var(--warn)}
+.formerr{color:var(--warn);font-size:13px;font-weight:600;grid-column:1/-1}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:6px 12px;font-size:13px;border-radius:999px}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.log{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto}
+.entry{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:10px 12px;border-radius:14px;background:var(--bg)}
+.tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--c);white-space:nowrap}
+.entry .note{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.entry .amt{font-weight:700}
+.entry .amt.out{color:var(--warn)} .entry .amt.in{color:var(--sage-deep)}
+.empty{color:var(--muted);text-align:center;padding:18px;border:1px dashed var(--line);border-radius:14px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:right;padding:8px 10px;border-bottom:1px dashed var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+td.neg{color:var(--warn)} td.pos{color:var(--sage-deep);font-weight:700}
+.jargrid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:820px){.jargrid{grid-template-columns:minmax(0,1fr)}}
+.jarcard{align-items:center;text-align:center}
+.phone{position:relative;width:170px;height:340px;border-radius:38px;border:6px solid var(--ink);background:var(--sage-soft);overflow:hidden}
+.phone .fill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,var(--sage),var(--sage-deep));transition:height .9s cubic-bezier(.2,.8,.2,1)}
+.phone .island{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:58px;height:18px;border-radius:12px;background:var(--ink);z-index:2}
+.phone .pct{position:absolute;inset:0;display:grid;place-items:center;z-index:2;font-family:var(--display);font-size:38px;font-weight:700;color:var(--ink)}
+.phone .ticks{position:absolute;inset:0;z-index:1}
+.phone .ticks span{position:absolute;right:0;width:14px;border-top:2px dashed color-mix(in srgb,var(--ink) 35%,transparent)}
+.phone .ticks span::after{content:attr(data-l);position:absolute;right:16px;top:-9px;font-size:10px;color:var(--muted)}
+.big{font-family:var(--display);font-size:26px;font-weight:700}
+.statrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.stat{background:var(--bg);border-radius:14px;padding:10px;text-align:left}
+.stat b{display:block;font-family:var(--display);font-size:17px}
+.stat small{color:var(--muted);font-size:12px}
+.flow{display:flex;flex-direction:column}
+.flow .row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.flow .row.total{font-weight:700;border-bottom:0}
+.flow .neg{color:var(--warn)}
+input[type=range]{padding:0;accent-color:var(--sage-deep);background:transparent;border:0}
+.months{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.month{background:var(--bg);border-radius:12px;padding:8px 10px;font-size:13px}
+.month b{display:block;font-family:var(--display)}
+.month.hit{background:var(--sage-soft)} .month.miss{background:var(--blush)}
+.tips{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.tips li::marker{color:var(--sage-deep)}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Tuitions · carpooling · spending · savings</div>
+      <h1>Finance Tracker</h1>
+    </div>
+    <span class="sync" id="sync">Loading…</span>
+  </header>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#overview" id="tab-overview">Overview</a>
+    <a href="#iphone-jar" id="tab-iphone-jar">iPhone Jar</a>
+  </nav>
+
+  <main class="view" id="view-overview">
+    <section class="card" aria-labelledby="sumH">
+      <div class="cardhead">
+        <h2 id="sumH">Month summary</h2>
+        <div class="monthnav">
+          <button class="iconbtn" id="prevM" type="button" aria-label="Previous month">‹</button>
+          <b id="mLabel" class="num">—</b>
+          <button class="iconbtn" id="nextM" type="button" aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div class="tiles">
+        <div class="tile in"><small>Money in</small><b class="num" id="tIn">Rs 0</b></div>
+        <div class="tile out"><small>Money out</small><b class="num" id="tOut">Rs 0</b></div>
+        <div class="tile net"><small>Saved</small><b class="num" id="tNet">Rs 0</b></div>
+        <div class="tile rate"><small>Savings rate</small><b class="num" id="tRate">—</b></div>
+      </div>
+      <div class="budget">
+        <div class="cardhead"><span style="font-weight:700">Spending budget</span><span class="sub num" id="budgetTxt">—</span></div>
+        <div class="track"><i id="budgetBar" style="width:0"></i></div>
+      </div>
+    </section>
+
+    <div class="two">
+      <section class="card" aria-labelledby="addH">
+        <h2 id="addH">Money in</h2>
+        <div class="entryform">
+          <label>Amount (Rs)<input id="amt" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 2000"></label>
+          <label>From<select id="src">
+            <option value="tuition">Tuition</option><option value="carpool">Carpool</option>
+            <option value="side">Side gig</option><option value="gift">Gift / Eidi</option>
+            <option value="phone">Sold something</option><option value="other">Other</option>
+          </select></label>
+          <label class="wide">Date<input id="date" type="date"></label>
+          <label class="wide">Note<input id="note" type="text" maxlength="60" placeholder="optional"></label>
+          <button type="button" id="addBtn" class="wide">Add</button>
+          <div class="formerr" id="formErr" role="alert" hidden></div>
+        </div>
+        <div class="status" id="added" role="status" aria-live="polite" hidden></div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:6px">Quick pick · fills the form, then press Add</div>
+          <div class="chips" id="addChips">
+            <button class="chip" type="button" data-q="25000" data-s="tuition">Tuition · 25,000</button>
+            <button class="chip" type="button" data-q="2000" data-s="carpool">Carpool weekly · 2,000</button>
+            <button class="chip" type="button" data-q="1600" data-s="carpool">Carpool weekly · 1,600</button>
+            <button class="chip" type="button" data-q="400" data-s="carpool">Carpool daily · 400</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card outcard" aria-labelledby="outH">
+        <h2 id="outH">Money out</h2>
+        <div class="entryform">
+          <label>Amount (Rs)<input id="o_amt" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 500"></label>
+          <label>For<select id="o_cat">
+            <option value="coffee">Coffee</option><option value="lunch">Lunch</option>
+            <option value="clothes">Clothes</option><option value="food">Food / snacks</option>
+            <option value="transport">Transport / fuel</option><option value="outing">Outing</option>
+            <option value="charity">Charity</option><option value="gift">Gift for someone</option>
+            <option value="other">Other</option>
+          </select></label>
+          <label class="wide">Date<input id="o_date" type="date"></label>
+          <label class="wide">Note<input id="o_note" type="text" maxlength="60" placeholder="optional"></label>
+          <button type="button" id="outBtn" class="outbtn wide">Take out</button>
+          <div class="formerr" id="outErr" role="alert" hidden></div>
+        </div>
+        <div class="status taken" id="taken" role="status" aria-live="polite" hidden></div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:6px">Quick pick · fills the form, then press Take out</div>
+          <div class="chips outchips" id="outChips">
+            <button class="chip" type="button" data-q="500" data-c="coffee">Coffee · 500</button>
+            <button class="chip" type="button" data-q="800" data-c="lunch">Lunch · 800</button>
+            <button class="chip" type="button" data-q="3000" data-c="clothes">Clothes · 3,000</button>
+            <button class="chip" type="button" data-q="300" data-c="food">Snacks · 300</button>
+            <button class="chip" type="button" data-q="1500" data-c="outing">Outing · 1,500</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="two">
+      <section class="card" aria-labelledby="catH">
+        <div class="cardhead"><h2 id="catH">Where it went</h2><span class="sub" id="catSub"></span></div>
+        <div class="hbars" id="catBars"></div>
+      </section>
+      <section class="card" aria-labelledby="srcH">
+        <div class="cardhead"><h2 id="srcH">Where it came from</h2><span class="sub" id="srcSub"></span></div>
+        <div class="hbars" id="srcBars"></div>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="histH">
+      <h2 id="histH">Month by month</h2>
+      <div class="tablewrap"><table class="num"><thead><tr><th>Month</th><th>In</th><th>Out</th><th>Saved</th></tr></thead><tbody id="histBody"></tbody></table></div>
+    </section>
+
+    <section class="card" aria-labelledby="logH">
+      <div class="cardhead">
+        <h2 id="logH">All entries</h2>
+        <div class="filters" id="filters">
+          <button type="button" data-f="all" aria-pressed="true">All</button>
+          <button type="button" data-f="in" aria-pressed="false">Money in</button>
+          <button type="button" data-f="out" aria-pressed="false">Money out</button>
+        </div>
+      </div>
+      <div class="log" id="log"></div>
+      <div class="confirm" id="resetRow"><button class="ghost" id="resetBtn" type="button">Clear all entries</button></div>
+    </section>
+
+    <section class="card" aria-labelledby="setH">
+      <div class="cardhead"><h2 id="setH">Usual month</h2><span class="sub">What you expect each month. Used for the budget bar and the iPhone date.</span></div>
+      <div class="fields">
+        <label>Tuition / month<input id="p_tuition" type="number" min="0" step="500"></label>
+        <label>Carpool / month<input id="p_carpool" type="number" min="0" step="500"></label>
+        <label>Spending budget / month<input id="p_spend" type="number" min="0" step="500"></label>
+        <label>Charity / month<input id="p_charity" type="number" min="0" step="500"></label>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="bkH">
+      <div class="cardhead"><h2 id="bkH">Backup</h2><span class="sub">Your data lives only on this phone. Save a backup now and then.</span></div>
+      <div class="chips">
+        <button type="button" id="bkCopy">Copy backup</button>
+        <button type="button" id="bkFile" class="ghost" style="padding:11px 16px">Save backup file</button>
+        <button type="button" id="bkPasteBtn" class="ghost" style="padding:11px 16px">Restore from backup</button>
+      </div>
+      <div id="bkPaste" class="entryform" hidden>
+        <label class="wide">Paste your backup text here<textarea id="bkText" rows="4" style="font:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:9px 11px;width:100%"></textarea></label>
+        <label class="wide">Or pick a backup file<input id="bkUpload" type="file" accept=".json,application/json,text/plain"></label>
+        <button type="button" id="bkRestore" class="wide">Restore. This replaces what's on this phone</button>
+      </div>
+      <div class="sub" id="bkMsg" role="status"></div>
+    </section>
+  </main>
+
+  <main class="view" id="view-iphone-jar" hidden>
+    <p class="sub" style="margin:0;max-width:65ch">Everything you save (money in minus money out) goes into this jar. Goal: iPhone 18 Pro Max, 512 GB, PTA approved.</p>
+    <div class="jargrid">
+      <section class="card jarcard" aria-label="Progress">
+        <div class="phone" aria-hidden="true">
+          <div class="island"></div>
+          <div class="ticks"><span style="bottom:25%" data-l="25%"></span><span style="bottom:50%" data-l="50%"></span><span style="bottom:75%" data-l="75%"></span></div>
+          <div class="fill" id="fill"></div>
+          <div class="pct num" id="pct">0%</div>
+        </div>
+        <div>
+          <div class="big num" id="savedBig">Rs 0</div>
+          <div class="sub num" id="ofGoal">of Rs 690,000</div>
+        </div>
+        <span class="pill" id="etaPill">—</span>
+        <div class="statrow">
+          <div class="stat"><small>Still needed</small><b class="num" id="remaining">—</b></div>
+          <div class="stat"><small>Saved this month</small><b class="num" id="thisMonth">—</b></div>
+          <div class="stat"><small>Per day to stay on track</small><b class="num" id="perDay">—</b></div>
+          <div class="stat"><small>Spent this month</small><b class="num" id="outMonth" style="color:var(--warn)">Rs 0</b></div>
+        </div>
+      </section>
+
+      <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+        <section class="card" aria-labelledby="planH">
+          <h2 id="planH">Goal plan</h2>
+          <div class="fields">
+            <label>Phone price (Rs)<input id="p_goal" type="number" min="0" step="1000"></label>
+            <label>Saved before today<input id="p_start" type="number" min="0" step="500"></label>
+            <label>Old 12 Pro Max resale<input id="p_resale" type="number" min="0" step="1000"></label>
+            <label>Target date<input id="p_target" type="date"></label>
+          </div>
+          <div class="flow num" id="flow"></div>
+          <label>What if I earned extra each month? <span class="num" id="extraLbl" style="color:var(--ink)">Rs 0</span>
+            <input id="extra" type="range" min="0" max="30000" step="1000" value="0"></label>
+          <div class="pill good" id="whatIf" style="align-self:flex-start">—</div>
+        </section>
+
+        <section class="card" aria-labelledby="mH">
+          <h2 id="mH">Saved each month</h2>
+          <p class="sub" style="margin:0">Green months reached your usual monthly saving. Pink months fell short.</p>
+          <div class="months" id="months"></div>
+        </section>
+
+        <section class="card" aria-labelledby="tH">
+          <h2 id="tH">Ways to get there faster</h2>
+          <ul class="tips">
+            <li><b>Pay the jar first.</b> On tuition pay day, move your monthly saving to a separate account or envelope before you spend anything.</li>
+            <li><b>Sell the 12 Pro Max at the end.</b> Add the resale price you expect above to see the new date.</li>
+            <li><b>Carpool money is jar money.</b> Log it every week so it doesn't leak into small spends.</li>
+            <li><b>Watch the coffee line.</b> Rs 500 a day on coffee is about Rs 15,000 a month, half a month of saving.</li>
+            <li><b>One extra student</b> moves your date by months. Try it on the slider.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const SRC={tuition:["Tuition","var(--sky)"],carpool:["Carpool","var(--butter)"],side:["Side gig","var(--lilac)"],gift:["Gift","var(--blush)"],phone:["Sold item","var(--beige)"],other:["Other","var(--beige)"],withdraw:["Took out","var(--blush)"]};
+const CAT={coffee:"Coffee",lunch:"Lunch",clothes:"Clothes",food:"Food",transport:"Transport",outing:"Outing",charity:"Charity",gift:"Gift",other:"Other"};
+const CATC={coffee:"var(--beige)",lunch:"var(--butter)",clothes:"var(--lilac)",food:"var(--blush)",transport:"var(--sky)",outing:"var(--sage)",charity:"var(--sage-soft)",gift:"var(--blush)",other:"var(--beige)"};
+const LS="proMaxJar.v1";
+const DEF={plan:{goal:690000,start:0,tuition:25000,carpool:14500,spend:6500,charity:3300,resale:0,target:""},entries:[]};
+let state=JSON.parse(JSON.stringify(DEF));
+let saveTimer=null, lastTs=null, filter="all";
+const $=id=>document.getElementById(id);
+const fmt=n=>(n<0?"− ":"")+"Rs "+Math.abs(Math.round(n)).toLocaleString("en-PK");
+const todayISO=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
+let viewMonth=todayISO().slice(0,7);
+const monthKey=s=>String(s).slice(0,7);
+const monthName=(k,long)=>{const [y,m]=k.split("-");return new Date(+y,+m-1,1).toLocaleDateString("en-GB",{month:long?"long":"short",year:"numeric"})};
+const shiftMonth=(k,n)=>{const [y,m]=k.split("-").map(Number);const d=new Date(y,m-1+n,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
+const isOut=e=>e.src==="withdraw"||e.src==="out";
+const signed=e=>isOut(e)?-e.amt:e.amt;
+const catOf=e=>e.src==="out"?(e.cat||"other"):"other";
+function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),1800)}
+function setSync(t){$("sync").textContent=t}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function monthly(p){return (+p.tuition||0)+(+p.carpool||0)-(+p.spend||0)-(+p.charity||0)}
+function saved(){return (+state.plan.start||0)+state.entries.reduce((a,e)=>a+signed(e),0)}
+function addMonths(d,m){const x=new Date(d);x.setMonth(x.getMonth()+m);return x}
+function etaFrom(rem,per){if(rem<=0)return 0;if(per<=0)return Infinity;return Math.ceil(rem/per)}
+function dateLabel(months){return addMonths(new Date(),months).toLocaleDateString("en-GB",{month:"long",year:"numeric"})}
+function hbars(el,rows,emptyMsg){
+  if(!rows.length){el.innerHTML=`<div class="empty">${emptyMsg}</div>`;return}
+  const max=Math.max(...rows.map(r=>r[1]));
+  el.innerHTML=rows.map(r=>`<div class="hbar"><span>${r[0]}</span><span class="track"><i style="width:${Math.max(3,r[1]/max*100)}%;background:${r[2]}"></i></span><span class="num">${fmt(r[1])}</span></div>`).join("");
+}
+
+function renderOverview(){
+  const p=state.plan, mk=viewMonth, inM=state.entries.filter(e=>monthKey(e.date)===mk);
+  const tin=inM.filter(e=>!isOut(e)).reduce((a,e)=>a+e.amt,0), tout=inM.filter(isOut).reduce((a,e)=>a+e.amt,0);
+  $("mLabel").textContent=monthName(mk,true);
+  $("nextM").disabled=mk>=todayISO().slice(0,7); $("nextM").style.opacity=$("nextM").disabled?.4:1;
+  $("tIn").textContent=fmt(tin);$("tOut").textContent=fmt(tout);$("tNet").textContent=fmt(tin-tout);
+  $("tRate").textContent=tin>0?Math.round((tin-tout)/tin*100)+"%":"—";
+  const bud=+p.spend||0, sp=inM.filter(e=>isOut(e)&&catOf(e)!=="charity").reduce((a,e)=>a+e.amt,0);
+  $("budgetTxt").textContent=bud?`${fmt(sp)} of ${fmt(bud)}${sp>bud?" · over by "+fmt(sp-bud):" · "+fmt(bud-sp)+" left"}`:"Set a budget in Usual month";
+  const bar=$("budgetBar");bar.style.width=bud?Math.min(100,sp/bud*100)+"%":"0";bar.classList.toggle("over",!!bud&&sp>bud);
+  const byC={};inM.filter(isOut).forEach(e=>{const c=catOf(e);byC[c]=(byC[c]||0)+e.amt});
+  hbars($("catBars"),Object.entries(byC).sort((a,b)=>b[1]-a[1]).map(([c,v])=>[CAT[c]||"Other",v,CATC[c]||"var(--beige)"]),"Nothing spent this month.");
+  $("catSub").textContent=monthName(mk);
+  const byS={};inM.filter(e=>!isOut(e)).forEach(e=>{byS[e.src]=(byS[e.src]||0)+e.amt});
+  hbars($("srcBars"),Object.entries(byS).sort((a,b)=>b[1]-a[1]).map(([s,v])=>[(SRC[s]||SRC.other)[0],v,(SRC[s]||SRC.other)[1]]),"No money in logged this month.");
+  $("srcSub").textContent=monthName(mk);
+  const hm={};state.entries.forEach(e=>{const k=monthKey(e.date);hm[k]=hm[k]||{i:0,o:0};if(isOut(e))hm[k].o+=e.amt;else hm[k].i+=e.amt});
+  const ks=Object.keys(hm).sort().reverse();
+  $("histBody").innerHTML=ks.length?ks.map(k=>{const r=hm[k],n=r.i-r.o;return `<tr><td>${monthName(k)}</td><td>${fmt(r.i)}</td><td class="neg">${fmt(r.o)}</td><td class="${n>=0?"pos":"neg"}">${fmt(n)}</td></tr>`}).join(""):`<tr><td colspan="4" style="text-align:center;color:var(--muted)">Your months will appear here once you log something.</td></tr>`;
+  let list=[...state.entries];
+  if(filter==="in")list=list.filter(e=>!isOut(e)); if(filter==="out")list=list.filter(isOut);
+  list.sort((a,b)=>String(b.date).localeCompare(String(a.date))||b.ts-a.ts);
+  $("log").innerHTML=list.length?list.map(e=>{const out=isOut(e);const [n,c]=e.src==="out"?[CAT[e.cat]||"Spent",CATC[e.cat]||"var(--blush)"]:(SRC[e.src]||SRC.other);
+    return `<div class="entry"><span class="tag" style="--c:${c}">${n}</span><span class="note">${new Date(e.date).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}${e.note?" · "+escapeHtml(e.note):""}</span><span class="amt num ${out?"out":"in"}">${out?"− ":"+ "}${fmt(e.amt)}</span><button class="ghost" type="button" data-del="${e.ts}" aria-label="Remove entry">✕</button></div>`}).join("")
+    :`<div class="empty">Nothing here yet. Log your first money in or money out above.</div>`;
+}
+
+function renderJar(){
+  const p=state.plan, goal=+p.goal||1, s=saved(), resale=+p.resale||0;
+  const rem=Math.max(0,goal-s-resale), pct=Math.min(100,Math.max(0,(s+resale)/goal*100));
+  $("fill").style.height=pct+"%"; $("pct").textContent=Math.floor(pct)+"%";
+  $("savedBig").textContent=fmt(s); $("ofGoal").textContent="of "+fmt(goal)+(resale?` · plus ${fmt(resale)} resale`:"");
+  $("remaining").textContent=fmt(rem);
+  const mk=todayISO().slice(0,7), cur=state.entries.filter(e=>monthKey(e.date)===mk);
+  $("thisMonth").textContent=fmt(cur.reduce((a,e)=>a+signed(e),0));
+  $("outMonth").textContent=fmt(cur.filter(isOut).reduce((a,e)=>a+e.amt,0));
+  const m=monthly(p), months=etaFrom(rem,m), pill=$("etaPill");
+  if(rem<=0){pill.className="pill good";pill.textContent="You made it. Go get the phone!"}
+  else if(months===Infinity){pill.className="pill warn";pill.textContent="Spending is higher than income in your usual month"}
+  else{pill.className="pill";if(p.target)pill.className=addMonths(new Date(),months)<=new Date(p.target)?"pill good":"pill warn";pill.textContent=`At this pace: ${dateLabel(months)}`}
+  if(p.target&&rem>0){const days=Math.max(1,Math.ceil((new Date(p.target)-new Date())/864e5));$("perDay").textContent=fmt(rem/days)}
+  else $("perDay").textContent=m>0?fmt(m/30):"—";
+  const rows=[["Tuition",+p.tuition||0],["Carpool",+p.carpool||0],["Spending",-(+p.spend||0)],["Charity",-(+p.charity||0)]];
+  let h=rows.map(r=>`<div class="row"><span>${r[0]}</span><span class="${r[1]<0?"neg":""}">${fmt(r[1])}</span></div>`).join("")+`<div class="row total"><span>You can save each month</span><span>${fmt(m)}</span></div>`;
+  if(p.target&&rem>0){const t=new Date(p.target),n=new Date();const ml=Math.max(1,(t.getFullYear()-n.getFullYear())*12+t.getMonth()-n.getMonth());const need=rem/ml;
+    h+=`<div class="row" style="border-top:1px dashed var(--line)"><span>Needed per month for your target date</span><span class="${need>m?"neg":""}">${fmt(need)}</span></div>`}
+  $("flow").innerHTML=h+`<div class="sub" style="padding-top:4px">Change these in Overview → Usual month.</div>`;
+  const ex=+$("extra").value; $("extraLbl").textContent=fmt(ex);
+  const wm=etaFrom(rem,m+ex), wi=$("whatIf");
+  if(rem<=0){wi.className="pill good";wi.textContent="Goal reached"}
+  else if(wm===Infinity){wi.className="pill warn";wi.textContent="Add income or cut spending to start saving"}
+  else{wi.className="pill good";const sooner=months===Infinity?"":` · ${Math.max(0,months-wm)} month${months-wm===1?"":"s"} sooner`;wi.textContent=`${wm} month${wm===1?"":"s"} → ${dateLabel(wm)}${ex?sooner:""}`}
+  const byM={};state.entries.forEach(e=>{const k=monthKey(e.date);byM[k]=(byM[k]||0)+signed(e)});
+  const keys=Object.keys(byM).sort(); if(!keys.includes(mk))keys.push(mk);
+  $("months").innerHTML=keys.map(k=>{const v=byM[k]||0;const cls=v>=m?"hit":(k===mk?"":"miss");return `<div class="month ${cls}"><span class="sub">${monthName(k)}${k===mk?" · now":""}</span><b class="num">${fmt(v)}</b></div>`}).join("");
+}
+function render(){renderOverview();renderJar()}
+
+function fillPlanInputs(){for(const k of Object.keys(DEF.plan)){const el=$("p_"+k);if(el&&document.activeElement!==el)el.value=state.plan[k]??""}}
+function persist(){
+  try{localStorage.setItem(LS,JSON.stringify(state));setSync("Saved on this phone")}catch(e){setSync("Could not save. Storage is full or blocked")}
+}
+function addEntry(amt,src,date,note,cat){
+  const e={amt,src,date,note,ts:Date.now()};if(cat)e.cat=cat;
+  state.entries=[...state.entries,e];lastTs=e.ts;
+  if(monthKey(date)<=todayISO().slice(0,7))viewMonth=monthKey(date);
+  render();persist();
+  const out=src==="out", box=$(out?"taken":"added"); $(out?"added":"taken").hidden=true;
+  box.innerHTML=`<span>${out?"Took out":"Added"} ${fmt(amt)} · ${out?CAT[cat]:(SRC[src]||SRC.other)[0]}</span><button type="button" class="ghost" data-undo="1">Undo</button>`;
+  box.hidden=false;clearTimeout(box._t);box._t=setTimeout(()=>{box.hidden=true},8000);
+}
+function parseAmt(v){return Math.round(parseFloat(String(v).replace(/[^0-9.]/g,"")))}
+function validDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(v)?v:todayISO()}
+function showErr(id,e){const err=$(id);err.textContent="Something went wrong: "+(e&&e.message||e)+". Tell Claude this message.";err.hidden=false}
+
+function wireForm(o){
+  const reset=()=>{const b=$(o.btn);b.textContent=o.label;b.classList.remove("ready");document.querySelectorAll("#"+o.chips+" .chip.picked").forEach(c=>c.classList.remove("picked"))};
+  const submit=()=>{try{
+    const amt=parseAmt($(o.amt).value), err=$(o.err);
+    if(!(amt>0)){err.textContent="Type an amount in rupees, like 500.";err.hidden=false;return}
+    err.hidden=true;
+    addEntry(amt,o.src(),validDate($(o.date).value),$(o.note).value.trim(),o.cat());
+    $(o.amt).value="";$(o.note).value="";$(o.date).value=todayISO();reset();
+  }catch(e){showErr(o.err,e)}};
+  $(o.btn).addEventListener("click",submit);
+  [o.amt,o.note].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();submit()}}));
+  $(o.amt).addEventListener("input",()=>{$(o.err).hidden=true;reset()});
+  document.querySelectorAll("#"+o.chips+" .chip").forEach(b=>b.addEventListener("click",()=>{
+    $(o.amt).value=(+b.dataset.q).toLocaleString("en-PK");o.pick(b);$(o.date).value=todayISO();$(o.err).hidden=true;
+    const btn=$(o.btn);btn.textContent=o.label+" "+fmt(+b.dataset.q);btn.classList.add("ready");
+    document.querySelectorAll("#"+o.chips+" .chip").forEach(c=>c.classList.toggle("picked",c===b));
+    btn.scrollIntoView({block:"nearest",behavior:"smooth"});
+  }));
+}
+wireForm({amt:"amt",date:"date",note:"note",btn:"addBtn",err:"formErr",chips:"addChips",label:"Add",src:()=>$("src").value,cat:()=>null,pick:b=>{$("src").value=b.dataset.s}});
+wireForm({amt:"o_amt",date:"o_date",note:"o_note",btn:"outBtn",err:"outErr",chips:"outChips",label:"Take out",src:()=>"out",cat:()=>$("o_cat").value,pick:b=>{$("o_cat").value=b.dataset.c}});
+["added","taken"].forEach(id=>$(id).addEventListener("click",e=>{if(!e.target.dataset.undo)return;state.entries=state.entries.filter(x=>x.ts!==lastTs);render();persist();$(id).hidden=true;toast("Undone")}));
+
+for(const k of Object.keys(DEF.plan)){const el=$("p_"+k);if(!el)continue;el.addEventListener("input",()=>{state.plan[k]=el.type==="date"?el.value:(el.value===""?0:+el.value);render();persist()})}
+$("extra").addEventListener("input",renderJar);
+$("prevM").addEventListener("click",()=>{viewMonth=shiftMonth(viewMonth,-1);renderOverview()});
+$("nextM").addEventListener("click",()=>{if(viewMonth<todayISO().slice(0,7)){viewMonth=shiftMonth(viewMonth,1);renderOverview()}});
+$("filters").addEventListener("click",e=>{const b=e.target.closest("[data-f]");if(!b)return;filter=b.dataset.f;document.querySelectorAll("#filters button").forEach(x=>x.setAttribute("aria-pressed",x===b));renderOverview()});
+$("log").addEventListener("click",ev=>{const b=ev.target.closest("[data-del]");if(!b)return;const ts=+b.dataset.del;state.entries=state.entries.filter(e=>e.ts!==ts);render();persist();toast("Entry removed")});
+$("resetRow").addEventListener("click",ev=>{
+  const r=$("resetRow"), base=`<button class="ghost" id="resetBtn" type="button">Clear all entries</button>`;
+  if(ev.target.id==="resetBtn")r.innerHTML=`<span>Delete every entry? Your settings stay.</span><button class="ghost" id="yesReset" type="button">Yes, clear</button><button class="ghost" id="noReset" type="button">Keep them</button>`;
+  else if(ev.target.id==="yesReset"){state.entries=[];render();persist();toast("Entries cleared");r.innerHTML=base}
+  else if(ev.target.id==="noReset")r.innerHTML=base;
+});
+window.addEventListener("error",e=>showErr("formErr",e.message));
+
+function route(){
+  const v=location.hash==="#iphone-jar"?"iphone-jar":"overview";
+  ["overview","iphone-jar"].forEach(n=>{$("view-"+n).hidden=n!==v;const t=$("tab-"+n);if(n===v)t.setAttribute("aria-current","page");else t.removeAttribute("aria-current")});
+}
+window.addEventListener("hashchange",route);
+
+$("date").value=todayISO();$("o_date").value=todayISO();
+try{const raw=localStorage.getItem(LS);if(raw){const s=JSON.parse(raw);state={plan:{...DEF.plan,...s.plan},entries:Array.isArray(s.entries)?s.entries:[]}}}catch(e){}
+route();fillPlanInputs();render();setSync("Saved on this phone");
+// backup
+const bkMsg=t=>{$("bkMsg").textContent=t};
+const backupText=()=>JSON.stringify({app:"finance-tracker",v:1,saved:new Date().toISOString(),plan:state.plan,entries:state.entries});
+$("bkCopy").addEventListener("click",()=>{const t=backupText();
+  navigator.clipboard.writeText(t).then(()=>bkMsg("Backup copied. Paste it into Notes or WhatsApp to keep it safe."),()=>{$("bkPaste").hidden=false;$("bkText").value=t;$("bkText").select();bkMsg("Select the text above and copy it.")})});
+$("bkFile").addEventListener("click",async()=>{
+  const name="finance-backup-"+todayISO()+".json", blob=new Blob([backupText()],{type:"application/json"});
+  try{const f=new File([blob],name,{type:"application/json"});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:"Finance backup"});bkMsg("Backup shared.");return}}catch(e){if(e&&e.name==="AbortError")return}
+  const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);bkMsg("Backup file saved.");
+});
+$("bkPasteBtn").addEventListener("click",()=>{$("bkPaste").hidden=!$("bkPaste").hidden});
+$("bkUpload").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{$("bkText").value=t;bkMsg("File loaded. Press Restore.")})});
+$("bkRestore").addEventListener("click",()=>{
+  try{const d=JSON.parse($("bkText").value.trim());if(!d||!Array.isArray(d.entries))throw new Error("no entries");
+    state={plan:{...DEF.plan,...(d.plan||{})},entries:d.entries};persist();fillPlanInputs();render();
+    $("bkPaste").hidden=true;$("bkText").value="";bkMsg("Restored "+d.entries.length+" entries.");toast("Backup restored")}
+  catch(e){bkMsg("That doesn't look like a backup from this tracker. Copy the whole text and try again.")}
+});
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
